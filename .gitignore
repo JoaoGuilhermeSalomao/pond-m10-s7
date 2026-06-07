@@ -5,9 +5,5 @@ __pycache__/
 *.pyc
 reports/*
 artifacts/*
-metrics/*
-charts/*
 !reports/.gitkeep
 !artifacts/.gitkeep
-!metrics/.gitkeep
-!charts/.gitkeep

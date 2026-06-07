@@ -53,7 +53,8 @@ def plot_total_duration(df: pd.DataFrame, output_dir: Path) -> None:
 
 def plot_job_duration(df: pd.DataFrame, output_dir: Path) -> None:
     jobs = (
-        df.drop_duplicates(["run_id", "job_name"])
+        df[df["job_status"] != "skipped"]
+        .drop_duplicates(["run_id", "job_name"])
         .groupby("job_name", as_index=False)["job_duration"]
         .mean()
         .sort_values("job_duration", ascending=False)
