@@ -152,6 +152,8 @@ python -m pytest
 
 ## Entregaveis
 
+Os entregaveis finais tambem foram centralizados em `entregaveis/`.
+
 Ao final do experimento, entregue:
 
 - link do repositorio GitHub;
@@ -164,4 +166,3 @@ Ao final do experimento, entregue:
 - IDs reais das execucoes;
 - commits reais usados;
 - explicacao das variacoes realizadas.
-
