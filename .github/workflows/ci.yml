@@ -1,0 +1,222 @@
+name: CI Metrics Experiment
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  read-configuration:
+    name: Read experiment configuration
+    runs-on: ubuntu-latest
+    outputs:
+      run_label: ${{ steps.config.outputs.run_label }}
+      cache_enabled: ${{ steps.config.outputs.cache_enabled }}
+      execution_mode: ${{ steps.config.outputs.execution_mode }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read variation file
+        id: config
+        shell: python
+        run: |
+          from pathlib import Path
+          import os
+
+          values = {
+              "RUN_LABEL": "manual",
+              "CACHE_ENABLED": "false",
+              "EXECUTION_MODE": "parallel",
+          }
+
+          path = Path("experiment/variation.env")
+          if path.exists():
+              for raw_line in path.read_text(encoding="utf-8").splitlines():
+                  line = raw_line.strip()
+                  if not line or line.startswith("#") or "=" not in line:
+                      continue
+                  key, value = line.split("=", 1)
+                  values[key.strip()] = value.strip()
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"run_label={values['RUN_LABEL']}\n")
+              output.write(f"cache_enabled={values['CACHE_ENABLED'].lower()}\n")
+              output.write(f"execution_mode={values['EXECUTION_MODE'].lower()}\n")
+
+      - name: Upload variation configuration
+        uses: actions/upload-artifact@v4
+        with:
+          name: variation-config-${{ github.run_id }}
+          path: experiment/variation.env
+
+  lint-parallel:
+    name: Lint parallel
+    runs-on: ubuntu-latest
+    needs: read-configuration
+    if: ${{ needs.read-configuration.outputs.execution_mode == 'parallel' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        if: ${{ needs.read-configuration.outputs.cache_enabled == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run lint
+        run: |
+          mkdir -p reports
+          python -m ruff check . | tee reports/ruff-report.txt
+
+      - name: Upload lint artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results-${{ github.run_id }}-parallel
+          path: reports/ruff-report.txt
+          if-no-files-found: ignore
+
+  test-parallel:
+    name: Test parallel
+    runs-on: ubuntu-latest
+    needs: read-configuration
+    if: ${{ needs.read-configuration.outputs.execution_mode == 'parallel' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        if: ${{ needs.read-configuration.outputs.cache_enabled == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          mkdir -p reports
+          python -m pytest
+
+      - name: Upload test artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}-parallel
+          path: reports/
+          if-no-files-found: ignore
+
+  lint-sequential:
+    name: Lint sequential
+    runs-on: ubuntu-latest
+    needs: read-configuration
+    if: ${{ needs.read-configuration.outputs.execution_mode == 'sequential' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        if: ${{ needs.read-configuration.outputs.cache_enabled == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run lint
+        run: |
+          mkdir -p reports
+          python -m ruff check . | tee reports/ruff-report.txt
+
+      - name: Upload lint artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results-${{ github.run_id }}-sequential
+          path: reports/ruff-report.txt
+          if-no-files-found: ignore
+
+  test-sequential:
+    name: Test sequential
+    runs-on: ubuntu-latest
+    needs:
+      - read-configuration
+      - lint-sequential
+    if: ${{ needs.read-configuration.outputs.execution_mode == 'sequential' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore pip cache
+        if: ${{ needs.read-configuration.outputs.cache_enabled == 'true' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          mkdir -p reports
+          python -m pytest
+
+      - name: Upload test artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_id }}-sequential
+          path: reports/
+          if-no-files-found: ignore
+

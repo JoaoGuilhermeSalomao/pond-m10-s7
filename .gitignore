@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+reports/*
+artifacts/*
+metrics/*
+charts/*
+!reports/.gitkeep
+!artifacts/.gitkeep
+!metrics/.gitkeep
+!charts/.gitkeep
